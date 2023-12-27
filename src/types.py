@@ -1,17 +1,19 @@
 from enum import Enum
-from typing import Union
+from typing import Union, Optional
 
 # CFG :
-#   Expr -> Term | Expr Operator Expr | '(' Expr ')' 
-#   Term -> Var | Number | '(' Expr ')' | FuncDefinition | Piecewise
-#   Piecewise -> Bounds | Bounds ',' Piecewise
-#   Bounds -> Expr 'For' Expr
-#   FuncDefinition -> FuncName '(' ExprLIst ')'
-#   FuncName -> ([a-zA-Z_][a-zA-Z0-9_]*)
-#   ExprList -> Expr | Expr ',' ExprList
-#   Operator -> = | + | - | * | / | ** | < | > | <= | >= | √ | !
-#   Var -> ([a-zA-z_][a-zA-Z0-9]*) | ([a-zA-Z_][a-zA-Z_0-9]*) | ∞ | -∞ 
-#   Number -> Integer | Float | -?e | -?pi | -?i 
+# Expr -> Term Expr' | '(' Expr ')' Expr'
+# Expr' -> Operator Expr Expr' | ε
+# Term -> Var | Number | '(' Expr ')' | FuncDefinition | Piecewise
+# Piecewise -> Bounds | Bounds ',' Piecewise
+# Bounds -> Expr 'For' Expr
+# FuncDefinition -> FuncName '(' ExprList ')'
+# FuncName -> ([a-zA-Z_][a-zA-Z0-9_]*)
+# ExprList -> Expr | Expr ',' ExprList
+# Operator -> = | + | - | * | / | ** | < | > | <= | >= | √ | !
+# Var -> ([a-zA-z_][a-zA-Z0-9]*) | ([a-zA-Z_][a-zA-Z_0-9]*) | ∞ | -∞
+# Number -> Integer | Float | -?e | -?pi | -?i
+
 
 # Lexer Stuff #
 class ExprToken(Enum):
@@ -37,7 +39,7 @@ class ExprToken(Enum):
     EOF = 20
 
 # Parser Stuff #
-    
+
 # A number n
 class Number:
     def __init__(self, value):
@@ -53,19 +55,22 @@ class Operator:
     def __init__(self, operator: str):
         self.operator = operator
 
+# An Expr' is an Operator, an Expr, and an Expr' or nothing
+class ExprPrime:
+    def __init__(self, operator: Optional[Operator], expr: Optional['Expr'], exprPrime: Optional['ExprPrime']):
+        self.operator = operator
+        self.expr = expr
+        self.exprPrime = exprPrime
+
 # A Term can be a number, a variable, An Expr in parens, 
 # or a function definition, or a piecewise
 class Term:
-    def __init__(self, number: 'Number', variable: 'Var', expr: 'Expr', func: 'FuncDefinition', piecewise: 'Piecewise'):
-        self.number = number
-        self.variable = variable
-        self.expr = expr
-        self.func = func
-        self.piecewise = piecewise
+    def __init__(self, term: Union[Number, Var, 'Expr', 'FuncDefinition', 'Piecewise']):
+        self.term = term
 
 # A Piecewise is a list of Bounds
 class Piecewise:
-    def __init__(self, bounds: 'Bounds', piecewise: 'Piecewise'):
+    def __init__(self, bounds: 'Bounds', piecewise: Optional['Piecewise']):
         self.bounds = bounds
         self.piecewise = piecewise
 
@@ -83,9 +88,11 @@ class FuncDefinition:
 
 # An ExprList is a list of Exprs
 class ExprList:
-    def __init__(self, expr: 'Expr', exprList: 'ExprList'):
+    def __init__(self, expr: 'Expr', exprList: Optional['ExprList']):
         self.expr = expr
         self.exprList = exprList
 
-# An Expr is a Term, or an Expr Operator Expr, or an Expr in parens
-Expr = Union['Term', 'Operator', 'Expr']
+# Define Expr as Union of Term and ExprPrime
+class Expr:
+    def __init__(self, content: Union['Term', 'ExprPrime', 'Expr']):
+        self.content = content
