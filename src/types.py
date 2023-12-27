@@ -2,17 +2,18 @@ from enum import Enum
 from typing import Union, Optional
 
 # CFG :
-# Expr -> Term Expr' | '(' Expr ')' Expr'
-# Expr' -> Operator Expr Expr' | ε
-# Term -> Var | Number | '(' Expr ')' | FuncDefinition | Piecewise
-# Piecewise -> Bounds | Bounds ',' Piecewise
-# Bounds -> Expr 'For' Expr
-# FuncDefinition -> FuncName '(' ExprList ')'
-# FuncName -> ([a-zA-Z_][a-zA-Z0-9_]*)
-# ExprList -> Expr | Expr ',' ExprList
-# Operator -> = | + | - | * | / | ** | < | > | <= | >= | √ | !
-# Var -> ([a-zA-z_][a-zA-Z0-9]*) | ([a-zA-Z_][a-zA-Z_0-9]*) | ∞ | -∞
-# Number -> Integer | Float | -?e | -?pi | -?i
+#   Expr -> Term Expr' | PreOperator Term Expr' 
+#   Expr' -> Operator Expr Expr' | ε
+#   Term -> Var | Number | '(' Expr ')' | FuncDefinition | Piecewise
+#   Piecewise -> Bounds | Bounds ',' Piecewise
+#   Bounds -> Expr 'For' Expr
+#   FuncDefinition -> FuncName '(' ExprList ')' = Expr
+#   FuncName -> ([a-zA-Z_][a-zA-Z0-9_]*)
+#   ExprList -> Expr | Expr ',' ExprList
+#   Operator -> = | + | - | * | / | ** | < | > | <= | >= |
+#   PreOperator -> - | √ | ! | ∫ | ∑ | ∏ | ∮ |
+#   Var -> ([a-zA-z_][a-zA-Z0-9]*) | ([a-zA-Z_][a-zA-Z_0-9]*) | ∞ | -∞
+#   Number -> Integer | Float | -?e | -?pi | -?i
 
 
 # Lexer Stuff #
@@ -39,7 +40,6 @@ class ExprToken(Enum):
     EOF = 20
 
 # Parser Stuff #
-
 # A number n
 class Number:
     def __init__(self, value):
@@ -55,9 +55,21 @@ class Operator:
     def __init__(self, operator: str):
         self.operator = operator
 
+# A PreOperator is a -, √, !, ∫, ∑, ∏, ∮
+class PreOperator:
+    def __init__(self, operator: str):
+        self.operator = operator
+
+# An Expr is a Term and an Expr' or a PreOperator, a Term, and an Expr'
+class Expr:
+    def __init__(self, preOperator: Optional['PreOperator'], term: 'Term', exprPrime: Optional['ExprPrime']):
+        self.preOperator = preOperator
+        self.term = term
+        self.exprPrime = exprPrime
+
 # An Expr' is an Operator, an Expr, and an Expr' or nothing
 class ExprPrime:
-    def __init__(self, operator: Optional[Operator], expr: Optional['Expr'], exprPrime: Optional['ExprPrime']):
+    def __init__(self, operator: Optional['Operator'], expr: Optional['Expr'], exprPrime: Optional['ExprPrime']):
         self.operator = operator
         self.expr = expr
         self.exprPrime = exprPrime
@@ -65,7 +77,7 @@ class ExprPrime:
 # A Term can be a number, a variable, An Expr in parens, 
 # or a function definition, or a piecewise
 class Term:
-    def __init__(self, term: Union[Number, Var, 'Expr', 'FuncDefinition', 'Piecewise']):
+    def __init__(self, term: Union['Number', 'Var', 'Expr', 'FuncDefinition', 'Piecewise']):
         self.term = term
 
 # A Piecewise is a list of Bounds
@@ -80,7 +92,7 @@ class Bounds:
         self.expr1 = expr1
         self.expr2 = expr2
 
-# A FuncDefinition is a function name and a list of Exprs
+# A FuncDefinition is a function name and a Argument of list of Exprs
 class FuncDefinition:
     def __init__(self, name: str, exprList: 'ExprList'):
         self.name = name
@@ -91,8 +103,3 @@ class ExprList:
     def __init__(self, expr: 'Expr', exprList: Optional['ExprList']):
         self.expr = expr
         self.exprList = exprList
-
-# Define Expr as Union of Term and ExprPrime
-class Expr:
-    def __init__(self, content: Union['Term', 'ExprPrime', 'Expr']):
-        self.content = content
