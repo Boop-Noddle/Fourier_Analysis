@@ -11,8 +11,26 @@
 # -o for output file name (Optional if -f, Required for -c and -i)
 # -v [2D|3D] for visualization of the result
 
+import sys
+import argparse
+from Physics.Fourier_Analysis.src.lexer import lex_func, lex_csv
+from Physics.Fourier_Analysis.src.parser import parse_func
+from Physics.Fourier_Analysis.src.fourier import ift
+from Physics.Fourier_Analysis.src.fourier import fft
+from Physics.Fourier_Analysis.src.visualization import visualization
+
 def main():
-    # TODO Not Implemented
-    pass
+    parser = argparse.ArgumentParser(description='Fourier Analysis')
+    parser.add_argument('-s', '--syntax', action='store_true', help='Prints out the function string syntax guide')
+    parser.add_argument('-f', '--function', type=str, help='Function string to perform IFT or FFT on')
+    parser.add_argument('-c', '--csv', type=str, help='CSV file to perform IFT or FFT on')
+    parser.add_argument('-i', '--input', type=str, help='File containing function strings to perform IFT or FFT on')
+    parser.add_argument('-ift', '--inverse-fourier-transform', action='store_true', help='Perform inverse fourier transform')
+    parser.add_argument('-fft', '--fast-fourier-transform', action='store_true', help='Perform fast fourier transform')
+    parser.add_argument('-o', '--output', type=str, help='Output file name')
+    parser.add_argument('-v', '--visualization', type=str, help='Visualization of the result')
+
+    args = parser.parse_args()
+    
 
 
