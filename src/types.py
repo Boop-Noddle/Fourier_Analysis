@@ -2,42 +2,35 @@ from enum import Enum
 from typing import Union, Optional
 
 # CFG :
-#   Expr -> Term Expr' | PreOperator Term Expr' 
+#   Expr -> Term Expr' | PreOperator Term Expr' |
 #   Expr' -> Operator Expr Expr' | ε
-#   Term -> Var | Number | '(' Expr ')' | FuncDefinition | Piecewise
+#   Term -> Factor PosOperator 
+#   Factor -> Var | Number | '(' Expr ')' | FuncDefinition | Piecewise
 #   Piecewise -> Bounds | Bounds ',' Piecewise
 #   Bounds -> Expr 'For' Expr
-#   FuncDefinition -> FuncName '(' ExprList ')' = Expr
-#   FuncName -> ([a-zA-Z_][a-zA-Z0-9_]*)
+#   FuncDefinition -> Var PosOperator '(' ExprList ')' = Expr | 
+#                     Var PosOperator '(' ExprList ')' Expr'
 #   ExprList -> Expr | Expr ',' ExprList
-#   Operator -> = | + | - | * | / | ** | < | > | <= | >= |
-#   PreOperator -> - | √ | ! | ∫ | ∑ | ∏ | ∮ |
-#   Var -> ([a-zA-z_][a-zA-Z0-9]*) | ([a-zA-Z_][a-zA-Z_0-9]*) | ∞ | -∞
-#   Number -> Integer | Float | -?e | -?pi | -?i
-
+#   Operator -> = | ≈ | + | - | * | / | ** | < | > | ≪ | ≫ | <= | >= | ... 
+#   PreOperator -> - | √ | ! | ∫ | ∑ | ∏ | ∮ | ∇ | ∂ | d | ∆ | | (abs) |
+#   PosOperator -> ! | ' | ° | · | : | % | ... | | (abs) |
+#   Var -> ([a-zA-z_][a-zA-Z0-9_]*) | ∞ | λ | μ | ρ | σ | τ | θ | Θ | Φ | Ψ | Ω | ω | Γ | γ | β 
+#   Number -> Integer | Float | e | π | i
 
 # Lexer Stuff #
-class ExprToken(Enum):
-    RParen = 1
-    LParen = 2
-    Var = 3
-    Plus = 4
-    Sub = 5
-    Mul = 6
-    Div = 7
-    Power = 8
-    Equals = 9
-    LessThen = 10
-    GreaterThen = 11
-    LessThenEqual = 12
-    GreaterThenEqual = 13
-    Sqrt = 14
-    Factorial = 15
-    Comma = 16
-    Imaginary = 17
-    Euler = 18
-    Pi = 19
-    EOF = 20
+tokens = [
+    ('NUMBER',      r'\b\d+(\.\d*)?|e|π|i\b'),         # Integer, Float, e, π, i
+    ('OPERATOR',    r'[=≈+\-*/]|(\*\*)|[<>]|(≪)|(≫)|[<=]|[>=]|...'), # Various operators
+    ('PREOPERATOR', r'[√!∫∑∏∮∇∂d∆\|]'),                # PreOperators
+    ('POSOPERATOR', r'[!\'°·:%\|]'),                   # PostOperators
+    ('LPAREN',      r'\('),                            # Left Parenthesis
+    ('RPAREN',      r'\)'),                            # Right Parenthesis
+    ('COMMA',       r','),                             # Comma
+    ('FOR',         r'\bFor\b'),                       # 'For' keyword
+    ('VAR',         r'\b[a-zA-z_][a-zA-Z0-9_]*|[∞λμρστθΘΦΨΩωΓγβ]\b'),  # Variables and Greek letters
+    ('SKIP',        r'[ \t]+'),                        # Spaces and tabs                   
+    ('MISMATCH',    r'.'),                             # Any other character
+]
 
 # Parser Stuff #
 # A number n
@@ -50,13 +43,18 @@ class Var:
     def __init__(self, name: str):
         self.name = name
 
-# A Operator is a +, -, *, /, **, <, >, <=, >=, √, !
+# A Operator is a +, -, *, /, **, <, >, <=, >=, =, ≈, ...
 class Operator:
     def __init__(self, operator: str):
         self.operator = operator
 
-# A PreOperator is a -, √, !, ∫, ∑, ∏, ∮
+# A PreOperator is a -, √, !, ∫, ∑, ∏, ∮, ∇, ∂, d, ∆, |
 class PreOperator:
+    def __init__(self, operator: str):
+        self.operator = operator
+
+# A PosOperator is a !, ', °, ·, :, %, ..., |
+class PosOperator:
     def __init__(self, operator: str):
         self.operator = operator
 
@@ -74,11 +72,16 @@ class ExprPrime:
         self.expr = expr
         self.exprPrime = exprPrime
 
-# A Term can be a number, a variable, An Expr in parens, 
-# or a function definition, or a piecewise
+# A Term is a Factor and a PosOperator
 class Term:
-    def __init__(self, term: Union['Number', 'Var', 'Expr', 'FuncDefinition', 'Piecewise']):
-        self.term = term
+    def __init__(self, factor: 'Factor', posOperator: Optional['PosOperator']):
+        self.factor = factor
+        self.posOperator = posOperator
+
+# A Factor is a Var, a Number, a FuncDefinition, a Piecewise, or an Expr bounded by parentheses
+class Factor:
+    def __init__(self, factor: Union['Var', 'Number', 'FuncDefinition', 'Piecewise', 'Expr']):
+        self.factor = factor
 
 # A Piecewise is a list of Bounds
 class Piecewise:
@@ -92,11 +95,14 @@ class Bounds:
         self.expr1 = expr1
         self.expr2 = expr2
 
-# A FuncDefinition is a function name and a Argument of list of Exprs
+# A FuncDefinition is a Var, a PosOperator, an ExprList in parens, and an Expr or an ExprPrime
 class FuncDefinition:
-    def __init__(self, name: str, exprList: 'ExprList'):
-        self.name = name
+    def __init__(self, var: 'Var', posOperator: Optional['PosOperator'], exprList: 'ExprList', expr: Optional['Expr'], exprPrime: Optional['ExprPrime']):
+        self.var = var
+        self.posOperator = posOperator
         self.exprList = exprList
+        self.expr = expr
+        self.exprPrime = exprPrime
 
 # An ExprList is a list of Exprs
 class ExprList:
